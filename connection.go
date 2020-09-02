@@ -1,13 +1,9 @@
-// Copyright (c) 2012, Sean Treadway, SoundCloud Ltd.
-// Use of this source code is governed by a BSD-style
-// license that can be found in the LICENSE file.
-// Source code and contact info at http://github.com/streadway/amqp
-
 package amqp
 
 import (
 	"bufio"
 	"crypto/tls"
+	"fmt"
 	"io"
 	"net"
 	"reflect"
@@ -113,6 +109,7 @@ type readDeadliner interface {
 
 // DefaultDial establishes a connection when config.Dial is not provided
 func DefaultDial(connectionTimeout time.Duration) func(network, addr string) (net.Conn, error) {
+	fmt.Println("Use DefaultDial ... ")
 	return func(network, addr string) (net.Conn, error) {
 		conn, err := net.DialTimeout(network, addr, connectionTimeout)
 		if err != nil {
@@ -180,11 +177,16 @@ func DialConfig(url string, config Config) (*Connection, error) {
 
 	addr := net.JoinHostPort(uri.Host, strconv.FormatInt(int64(uri.Port), 10))
 
+	//fmt.Printf("%#v \n ", uri)
+	//fmt.Printf("%#v \n", config)
+	//fmt.Printf("%#v \n", addr)
+
 	dialer := config.Dial
 	if dialer == nil {
 		dialer = DefaultDial(defaultConnectionTimeout)
 	}
 
+	fmt.Printf("%#v \n", addr)
 	conn, err = dialer("tcp", addr)
 	if err != nil {
 		return nil, err

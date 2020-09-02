@@ -1,21 +1,19 @@
-// This example declares a durable Exchange, and publishes a single message to
-// that Exchange with a given routing key.
-//
 package main
 
 import (
 	"flag"
 	"fmt"
 	"log"
+	"time"
 
 	"github.com/streadway/amqp"
 )
 
 var (
-	uri          = flag.String("uri", "amqp://guest:guest@localhost:5672/", "AMQP URI")
-	exchangeName = flag.String("exchange", "test-exchange", "Durable AMQP exchange name")
+	uri          = flag.String("uri", "amqp://user01:password01@192.168.0.46:5672/dev", "AMQP URI")
+	exchangeName = flag.String("exchange", "xiaoyusan", "Durable AMQP exchange name")
 	exchangeType = flag.String("exchange-type", "direct", "Exchange type - direct|fanout|topic|x-custom")
-	routingKey   = flag.String("key", "test-key", "AMQP routing key")
+	routingKey   = flag.String("key", "normal.topic", "AMQP routing key")
 	body         = flag.String("body", "foobar", "Body of message")
 	reliable     = flag.Bool("reliable", true, "Wait for the publisher confirmation before exiting")
 )
@@ -29,26 +27,22 @@ func main() {
 		log.Fatalf("%s", err)
 	}
 	log.Printf("published %dB OK", len(*body))
+	time.Sleep(time.Millisecond * 500)
 }
 
 func publish(amqpURI, exchange, exchangeType, routingKey, body string, reliable bool) error {
 
-	// This function dials, connects, declares, publishes, and tears down,
-	// all in one go. In a real service, you probably want to maintain a
-	// long-lived connection as state, and publish against that.
-
-	log.Printf("dialing %q", amqpURI)
 	connection, err := amqp.Dial(amqpURI)
 	if err != nil {
-		return fmt.Errorf("Dial: %s", err)
+		return fmt.Errorf("Dial: %s ", err)
 	}
 	defer connection.Close()
 
-	log.Printf("got Connection, getting Channel")
 	channel, err := connection.Channel()
 	if err != nil {
-		return fmt.Errorf("Channel: %s", err)
+		return fmt.Errorf("Channel: %s ", err)
 	}
+	defer channel.Close()
 
 	log.Printf("got Channel, declaring %q Exchange (%q)", exchangeType, exchange)
 	if err := channel.ExchangeDeclare(
@@ -60,15 +54,14 @@ func publish(amqpURI, exchange, exchangeType, routingKey, body string, reliable 
 		false,        // noWait
 		nil,          // arguments
 	); err != nil {
-		return fmt.Errorf("Exchange Declare: %s", err)
+		return fmt.Errorf("Exchange Declare: %s ", err)
 	}
 
-	// Reliable publisher confirms require confirm.select support from the
-	// connection.
+	// Reliable publisher confirms require confirm.select support from the connection.
 	if reliable {
 		log.Printf("enabling publishing confirms.")
 		if err := channel.Confirm(false); err != nil {
-			return fmt.Errorf("Channel could not be put into confirm mode: %s", err)
+			return fmt.Errorf("Channel could not be put into confirm mode: %s ", err)
 		}
 
 		confirms := channel.NotifyPublish(make(chan amqp.Confirmation, 1))
@@ -87,20 +80,16 @@ func publish(amqpURI, exchange, exchangeType, routingKey, body string, reliable 
 			ContentType:     "text/plain",
 			ContentEncoding: "",
 			Body:            []byte(body),
-			DeliveryMode:    amqp.Transient, // 1=non-persistent, 2=persistent
-			Priority:        0,              // 0-9
-			// a bunch of application/implementation-specific fields
+			DeliveryMode:    amqp.Persistent, // 1=non-persistent, 2=persistent
+			Priority:        0,               // 0-9
 		},
 	); err != nil {
-		return fmt.Errorf("Exchange Publish: %s", err)
+		return fmt.Errorf("Exchange Publish: %s ", err)
 	}
 
 	return nil
 }
 
-// One would typically keep a channel of publishings, a sequence number, and a
-// set of unacknowledged sequence numbers and loop until the publishing channel
-// is closed.
 func confirmOne(confirms <-chan amqp.Confirmation) {
 	log.Printf("waiting for confirmation of one publishing")
 

@@ -2,7 +2,7 @@
 // membership, reading from stdin, writing to stdout.
 //
 // This example shows how to implement reconnect logic independent from a
-// publish/subscribe loop with bridges to application types.
+// publish/consume loop with bridges to application types.
 
 package main
 
@@ -21,20 +21,17 @@ import (
 
 var url = flag.String("url", "amqp:///", "AMQP url for both the publisher and subscriber")
 
-// exchange binds the publishers to the subscribers
 const exchange = "pubsub"
 
 // message is the application type for a message.  This can contain identity,
 // or a reference to the recevier chan for further demuxing.
 type message []byte
 
-// session composes an amqp.Connection with an amqp.Channel
 type session struct {
 	*amqp.Connection
 	*amqp.Channel
 }
 
-// Close tears the connection down, taking the channel with it.
 func (s session) Close() error {
 	if s.Connection == nil {
 		return nil
@@ -84,8 +81,6 @@ func redial(ctx context.Context, url string) chan chan session {
 	return sessions
 }
 
-// publish publishes messages to a reconnecting session to a fanout exchange.
-// It receives from the application specific source of messages.
 func publish(sessions chan chan session, messages <-chan message) {
 	for session := range sessions {
 		var (
@@ -150,14 +145,13 @@ func publish(sessions chan chan session, messages <-chan message) {
 func identity() string {
 	hostname, err := os.Hostname()
 	h := sha1.New()
-	fmt.Fprint(h, hostname)
-	fmt.Fprint(h, err)
-	fmt.Fprint(h, os.Getpid())
+	_, _ = fmt.Fprint(h, hostname)
+	_, _ = fmt.Fprint(h, err)
+	_, _ = fmt.Fprint(h, os.Getpid())
 	return fmt.Sprintf("%x", h.Sum(nil))
 }
 
-// subscribe consumes deliveries from an exclusive queue from a fanout exchange and sends to the application specific messages chan.
-func subscribe(sessions chan chan session, messages chan<- message) {
+func consume(sessions chan chan session, messages chan<- message) {
 	queue := identity()
 
 	for session := range sessions {
@@ -189,8 +183,7 @@ func subscribe(sessions chan chan session, messages chan<- message) {
 	}
 }
 
-// read is this application's translation to the message format, scanning from
-// stdin.
+// read is this application's translation to the message format, scanning from stdin.
 func read(r io.Reader) <-chan message {
 	lines := make(chan message)
 	go func() {
@@ -203,8 +196,7 @@ func read(r io.Reader) <-chan message {
 	return lines
 }
 
-// write is this application's subscriber of application messages, printing to
-// stdout.
+// write is this application's subscriber of application messages, printing to stdout.
 func write(w io.Writer) chan<- message {
 	lines := make(chan message)
 	go func() {
@@ -226,7 +218,7 @@ func main() {
 	}()
 
 	go func() {
-		subscribe(redial(ctx, *url), write(os.Stdout))
+		consume(redial(ctx, *url), write(os.Stdout))
 		done()
 	}()
 
