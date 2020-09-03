@@ -3,19 +3,27 @@ package main
 import (
 	"flag"
 	"fmt"
-	"log"
 	"time"
 
 	"github.com/streadway/amqp"
+	log "gitlab.xinhulu.com/platform/GoPlatform/logger"
+)
+
+const (
+	Uri          = "amqp://user01:password01@192.168.0.46:5672/dev"
+	LocalUri     = "amqp://root:root@127.0.0.1:5672/"
+	RouteKey     = "normal.topic"
+	Queue        = "normal.queue"
+	Exchange     = "xiaoyusan"
+	ExchangeType = "direct"
 )
 
 var (
-	uri          = flag.String("uri", "amqp://user01:password01@192.168.0.46:5672/dev", "AMQP URI")
-	exchangeName = flag.String("exchange", "xiaoyusan", "Durable AMQP exchange name")
-	exchangeType = flag.String("exchange-type", "direct", "Exchange type - direct|fanout|topic|x-custom")
-	routingKey   = flag.String("key", "normal.topic", "AMQP routing key")
+	uri          = flag.String("uri", LocalUri, "AMQP URI")
+	exchangeName = flag.String("exchange", Exchange, "Durable AMQP exchange name")
+	exchangeType = flag.String("exchange-type", ExchangeType, "Exchange type - direct|fanout|topic|x-custom")
+	routingKey   = flag.String("key", RouteKey, "AMQP routing key")
 	body         = flag.String("body", "foobar", "Body of message")
-	reliable     = flag.Bool("reliable", true, "Wait for the publisher confirmation before exiting")
 )
 
 func init() {
@@ -23,18 +31,25 @@ func init() {
 }
 
 func main() {
-	err := publish(*uri, *exchangeName, *exchangeType, *routingKey, *body, *reliable)
+
+	log.SetRequestIdOff()
+	log.SetGoroutineIdOn()
+	log.SetStdoutOn()
+
+	log.InitLogger("producer")
+
+	err := publish(*uri, *exchangeName, *exchangeType, *routingKey, *body)
 	if err != nil {
-		log.Fatalf("%s", err)
+		log.Info("%s", err)
 	}
 	time.Sleep(time.Millisecond * 500)
 }
 
-func publish(amqpURI, exchange, exchangeType, routingKey, body string, reliable bool) error {
+func publish(amqpURI, exchange, exchangeType, routingKey, body string) error {
 
 	connection, err := amqp.Dial(amqpURI)
 	if err != nil {
-		log.Printf("Dial: %s ", err)
+		log.Info("Dial: %s ", err)
 		return err
 	}
 	defer connection.Close()
@@ -45,7 +60,6 @@ func publish(amqpURI, exchange, exchangeType, routingKey, body string, reliable 
 	}
 	defer channel.Close()
 
-	log.Printf("got Channel, declaring %q Exchange (%q)", exchangeType, exchange)
 	if err := channel.ExchangeDeclare(
 		exchange,     // name
 		exchangeType, // type
@@ -58,7 +72,6 @@ func publish(amqpURI, exchange, exchangeType, routingKey, body string, reliable 
 		return fmt.Errorf("Exchange Declare: %s ", err)
 	}
 
-	log.Printf("enabling publishing confirms.")
 	err = channel.Confirm(false)
 	if err != nil {
 		return fmt.Errorf("Channel could not be put into confirm mode: %s ", err)
@@ -66,7 +79,6 @@ func publish(amqpURI, exchange, exchangeType, routingKey, body string, reliable 
 	confirms := channel.NotifyPublish(make(chan amqp.Confirmation, 1))
 	defer confirmOne(confirms)
 
-	log.Printf("declared Exchange, publishing %d B body (%q)", len(body), body)
 	if err = channel.Publish(
 		exchange,   // publish to an exchange
 		routingKey, // routing to 0 or more queues
@@ -92,9 +104,9 @@ func confirmOne(confirms <-chan amqp.Confirmation) {
 	confirmed := <-confirms
 
 	if confirmed.Ack {
-		log.Printf("confirmed delivery with delivery tag: %d", confirmed.DeliveryTag)
+		log.Infof("confirmed delivery with delivery tag: %d", confirmed.DeliveryTag)
 	} else {
-		log.Printf("failed delivery of delivery tag: %d", confirmed.DeliveryTag)
+		log.Infof("failed delivery of delivery tag: %d", confirmed.DeliveryTag)
 	}
 
 }

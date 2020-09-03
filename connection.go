@@ -3,9 +3,7 @@ package amqp
 import (
 	"bufio"
 	"crypto/tls"
-	"fmt"
 	"io"
-	"log"
 	"net"
 	"reflect"
 	"strconv"
@@ -13,6 +11,8 @@ import (
 	"sync"
 	"sync/atomic"
 	"time"
+
+	log "gitlab.xinhulu.com/platform/GoPlatform/logger"
 )
 
 const (
@@ -110,7 +110,6 @@ type readDeadliner interface {
 
 // DefaultDial establishes a connection when config.Dial is not provided
 func DefaultDial(connectionTimeout time.Duration) func(network, addr string) (net.Conn, error) {
-	log.Printf("Use DefaultDial ... ")
 	return func(network, addr string) (net.Conn, error) {
 		conn, err := net.DialTimeout(network, addr, connectionTimeout)
 		if err != nil {
@@ -124,6 +123,7 @@ func DefaultDial(connectionTimeout time.Duration) func(network, addr string) (ne
 			return nil, err
 		}
 
+		log.Infof("connected %#v", conn)
 		return conn, nil
 	}
 }
@@ -182,7 +182,6 @@ func DialConfig(url string, config Config) (*Connection, error) {
 		dialer = DefaultDial(defaultConnectionTimeout)
 	}
 
-	fmt.Printf("%#v \n", addr)
 	conn, err = dialer("tcp", addr)
 	if err != nil {
 		return nil, err
@@ -218,6 +217,7 @@ a transport.  Use this method if you have established a TLS connection or wish
 to use your own custom transport.
 */
 func Open(conn io.ReadWriteCloser, config Config) (*Connection, error) {
+
 	c := &Connection{
 		conn:      conn,
 		writer:    &writer{bufio.NewWriter(conn)},
@@ -227,6 +227,7 @@ func Open(conn io.ReadWriteCloser, config Config) (*Connection, error) {
 		errors:    make(chan *Error, 1),
 		deadlines: make(chan readDeadliner, 1),
 	}
+	log.Info("Connection Struct init")
 	go c.reader(conn)
 	return c, c.open(config)
 }
@@ -522,6 +523,7 @@ func (c *Connection) reader(r io.Reader) {
 			return
 		}
 
+		log.Infof("frmae : %#v", frame)
 		c.demux(frame)
 
 		if haveDeadliner {
