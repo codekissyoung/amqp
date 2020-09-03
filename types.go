@@ -56,8 +56,7 @@ var (
 	ErrFieldType = &Error{Code: SyntaxError, Reason: "unsupported table field type"}
 )
 
-// Error captures the code and reason a channel or connection has been closed
-// by the server.
+// Error captures the code and reason a channel or connection has been closed by the server.
 type Error struct {
 	Code    int    // constant code from the specification
 	Reason  string // description of the error

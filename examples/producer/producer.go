@@ -35,7 +35,6 @@ func main() {
 	log.SetRequestIdOff()
 	log.SetGoroutineIdOn()
 	log.SetStdoutOn()
-
 	log.InitLogger("producer")
 
 	err := publish(*uri, *exchangeName, *exchangeType, *routingKey, *body)
@@ -53,6 +52,7 @@ func publish(amqpURI, exchange, exchangeType, routingKey, body string) error {
 		return err
 	}
 	defer connection.Close()
+	return nil
 
 	channel, err := connection.Channel()
 	if err != nil {

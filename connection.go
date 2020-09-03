@@ -511,21 +511,20 @@ func (c *Connection) dispatchClosed(f frame) {
 // will demux the streams and dispatch to one of the opened channels or
 // handle on channel 0 (the connection channel).
 func (c *Connection) reader(r io.Reader) {
-	buf := bufio.NewReader(r)
-	frames := &reader{buf}
+	log.Infof("r : %#T", r)
+
+	// 如果设置了超时 Deadline
+	// 通过 断言 判断, 也是骚气的写法
 	conn, haveDeadliner := r.(readDeadliner)
 
+	frames := &reader{r: bufio.NewReader(r)}
 	for {
 		frame, err := frames.ReadFrame()
-
 		if err != nil {
 			c.shutdown(&Error{Code: FrameError, Reason: err.Error()})
 			return
 		}
-
-		log.Infof("frmae : %#v", frame)
 		c.demux(frame)
-
 		if haveDeadliner {
 			select {
 			case c.deadlines <- conn:

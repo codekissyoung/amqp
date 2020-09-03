@@ -6,6 +6,8 @@ import (
 	"errors"
 	"io"
 	"time"
+
+	log "gitlab.xinhulu.com/platform/GoPlatform/logger"
 )
 
 /*
@@ -41,11 +43,13 @@ In realistic implementations where performance is a concern, we would use
 func (r *reader) ReadFrame() (frame frame, err error) {
 	var scratch [7]byte
 
+	log.Infof("r.r : %#T ", r.r)
+
 	if _, err = io.ReadFull(r.r, scratch[:7]); err != nil {
 		return
 	}
 
-	typ := uint8(scratch[0])
+	typ := scratch[0]
 	channel := binary.BigEndian.Uint16(scratch[1:3])
 	size := binary.BigEndian.Uint32(scratch[3:7])
 

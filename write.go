@@ -8,9 +8,14 @@ import (
 	"io"
 	"math"
 	"time"
+
+	"gitlab.xinhulu.com/platform/GoPlatform/logger"
 )
 
 func (w *writer) WriteFrame(frame frame) (err error) {
+
+	logger.Infof("WriteFrame : %T %#v", frame, frame)
+
 	if err = frame.write(w.w); err != nil {
 		return
 	}
