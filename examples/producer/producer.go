@@ -23,10 +23,10 @@ func init() {
 }
 
 func main() {
-	if err := publish(*uri, *exchangeName, *exchangeType, *routingKey, *body, *reliable); err != nil {
+	err := publish(*uri, *exchangeName, *exchangeType, *routingKey, *body, *reliable)
+	if err != nil {
 		log.Fatalf("%s", err)
 	}
-	log.Printf("published %dB OK", len(*body))
 	time.Sleep(time.Millisecond * 500)
 }
 
@@ -34,7 +34,8 @@ func publish(amqpURI, exchange, exchangeType, routingKey, body string, reliable 
 
 	connection, err := amqp.Dial(amqpURI)
 	if err != nil {
-		return fmt.Errorf("Dial: %s ", err)
+		log.Printf("Dial: %s ", err)
+		return err
 	}
 	defer connection.Close()
 
@@ -57,19 +58,15 @@ func publish(amqpURI, exchange, exchangeType, routingKey, body string, reliable 
 		return fmt.Errorf("Exchange Declare: %s ", err)
 	}
 
-	// Reliable publisher confirms require confirm.select support from the connection.
-	if reliable {
-		log.Printf("enabling publishing confirms.")
-		if err := channel.Confirm(false); err != nil {
-			return fmt.Errorf("Channel could not be put into confirm mode: %s ", err)
-		}
-
-		confirms := channel.NotifyPublish(make(chan amqp.Confirmation, 1))
-
-		defer confirmOne(confirms)
+	log.Printf("enabling publishing confirms.")
+	err = channel.Confirm(false)
+	if err != nil {
+		return fmt.Errorf("Channel could not be put into confirm mode: %s ", err)
 	}
+	confirms := channel.NotifyPublish(make(chan amqp.Confirmation, 1))
+	defer confirmOne(confirms)
 
-	log.Printf("declared Exchange, publishing %dB body (%q)", len(body), body)
+	log.Printf("declared Exchange, publishing %d B body (%q)", len(body), body)
 	if err = channel.Publish(
 		exchange,   // publish to an exchange
 		routingKey, // routing to 0 or more queues
@@ -91,11 +88,13 @@ func publish(amqpURI, exchange, exchangeType, routingKey, body string, reliable 
 }
 
 func confirmOne(confirms <-chan amqp.Confirmation) {
-	log.Printf("waiting for confirmation of one publishing")
 
-	if confirmed := <-confirms; confirmed.Ack {
+	confirmed := <-confirms
+
+	if confirmed.Ack {
 		log.Printf("confirmed delivery with delivery tag: %d", confirmed.DeliveryTag)
 	} else {
 		log.Printf("failed delivery of delivery tag: %d", confirmed.DeliveryTag)
 	}
+
 }

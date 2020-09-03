@@ -30,7 +30,7 @@ All frames consist of a header (7 octets), a payload of arbitrary size, and a
 
 To read a frame, we:
   1. Read the header and check the frame type and channel.
-	2. Depending on the frame type, we read the payload and process it.
+  2. Depending on the frame type, we read the payload and process it.
   3. Read the frame end octet.
 
 In realistic implementations where performance is a concern, we would use

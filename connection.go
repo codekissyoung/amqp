@@ -5,6 +5,7 @@ import (
 	"crypto/tls"
 	"fmt"
 	"io"
+	"log"
 	"net"
 	"reflect"
 	"strconv"
@@ -109,7 +110,7 @@ type readDeadliner interface {
 
 // DefaultDial establishes a connection when config.Dial is not provided
 func DefaultDial(connectionTimeout time.Duration) func(network, addr string) (net.Conn, error) {
-	fmt.Println("Use DefaultDial ... ")
+	log.Printf("Use DefaultDial ... ")
 	return func(network, addr string) (net.Conn, error) {
 		conn, err := net.DialTimeout(network, addr, connectionTimeout)
 		if err != nil {
@@ -176,11 +177,6 @@ func DialConfig(url string, config Config) (*Connection, error) {
 	}
 
 	addr := net.JoinHostPort(uri.Host, strconv.FormatInt(int64(uri.Port), 10))
-
-	//fmt.Printf("%#v \n ", uri)
-	//fmt.Printf("%#v \n", config)
-	//fmt.Printf("%#v \n", addr)
-
 	dialer := config.Dial
 	if dialer == nil {
 		dialer = DefaultDial(defaultConnectionTimeout)
@@ -220,7 +216,6 @@ func DialConfig(url string, config Config) (*Connection, error) {
 Open accepts an already established connection, or other io.ReadWriteCloser as
 a transport.  Use this method if you have established a TLS connection or wish
 to use your own custom transport.
-
 */
 func Open(conn io.ReadWriteCloser, config Config) (*Connection, error) {
 	c := &Connection{
